@@ -1,14 +1,14 @@
 import subprocess
 import os 
 from PIL import Image
-import google.generativeai as genai
+from google import genai
 
 # ==========================================
 # 1. API Setup (Apna API Key yahan dalein)
 # ==========================================
 # DHYAN DEIN: Apni asli Gemini API key yahan string mein dalein
-GEMINI_API_KEY = "AIzaSyC3I9EyS2wxDPQeTaiqU4qdvLyKtXFjB6c"
-genai.configure(api_key=GEMINI_API_KEY)
+GEMINI_API_KEY = "AIzaSyDhad0s8N89zNny1jL7keaz17Y5Zc7bxFQ"
+# genai.configure(api_key=GEMINI_API_KEY)
 
 def capture_and_analyze():
     # File paths
@@ -22,11 +22,8 @@ def capture_and_analyze():
     print("📸 1. C++ tool se screenshot le raha hoon...")
     try:
         subprocess.run([exe_path], check=True, capture_output=True)
-    except FileNotFoundError:
-        print("❌ Error: 'screenshot.exe' nahi mila. Kya aapne C++ code compile kiya hai?")
-        return
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Error: C++ program crash ho gaya.\n{e}")
+    except Exception as e:
+        print(f"❌ Error: C++ program fail ho gaya.\n{e}")
         return
     
     # ==========================================
@@ -48,13 +45,19 @@ def capture_and_analyze():
     # ==========================================
     print("🧠 3. Screen ko analyse karne ke liye Gemini ke paas bhej raha hoon...")
 
-    model = genai.GenerativeModel('gemini-1.5-flash')
-
-    vision_image = Image.open(png_path)
-    prompt = "Main apne laptop par abhi kya kar raha hoon? Is screen ko dekh kar detail mein samjhao ki screen par kaunse apps khule hain aur kya kaam chal raha hai."
-
     try:
-        response = model.generate_content([prompt, vision_image])
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        
+        vision_image = Image.open(png_path)
+        prompt = """Main apne laptop par abhi kya kar raha hoon? Is screen ko dekh kar detail mein samjhao ki screen par kaunse apps khule hain aur kya kaam chal raha hai. 
+        
+        IMPORTANT INSTRUCTION: Tumhara poora jawab sirf aur sirf 'Hinglish' (Hindi spoken language written in English alphabets) mein hona chahiye. Pure Hindi (Devanagari script) ya pure English ka bilkul use mat karna. Jawab natural aur conversational hona chahiye."""
+
+        # Latest Gemini 2.0 Flash model use kar rahe hain
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, vision_image]
+        )
         print("\n==================================================")
         print("🤖 GEMINI KA JAWAB:")
         print("==================================================")

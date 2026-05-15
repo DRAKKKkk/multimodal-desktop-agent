@@ -48,4 +48,20 @@ def capture_and_analyze():
     # ==========================================
     print("🧠 3. Screen ko analyse karne ke liye Gemini ke paas bhej raha hoon...")
 
-    model = genai.Generative
+    model = genai.GenerativeModel('gemini-1.5-flash')
+
+    vision_image = Image.open(png_path)
+    prompt = "Main apne laptop par abhi kya kar raha hoon? Is screen ko dekh kar detail mein samjhao ki screen par kaunse apps khule hain aur kya kaam chal raha hai."
+
+    try:
+        response = model.generate_content([prompt, vision_image])
+        print("\n==================================================")
+        print("🤖 GEMINI KA JAWAB:")
+        print("==================================================")
+        print(response.text)
+        print("==================================================\n")
+    except Exception as e:
+        print(f"❌ API Error: {e}")
+
+if __name__ == "__main__":
+    capture_and_analyze()

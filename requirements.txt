@@ -1,0 +1,14 @@
+# Gemini API Engine
+google-genai
+
+# Vision & Automation Engine
+pillow
+pyautogui
+keyboard
+
+# Voice Processing
+SpeechRecognition
+pyaudio
+
+# Environment & Security
+python-dotenv

@@ -42,11 +42,7 @@ __pycache__/
 .vscode/
 *.swp
 
-# Local shortcut scripts
-*.bat
-.bat
 
-run_omni.bat - Shortcut.lnk
 
 *.bmp
 *.pyw

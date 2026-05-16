@@ -49,3 +49,4 @@ __pycache__/
 run_omni.bat - Shortcut.lnk
 
 *.bmp
+*.pyw

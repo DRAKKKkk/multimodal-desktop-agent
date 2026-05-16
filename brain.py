@@ -1,7 +1,10 @@
-from winotify import Notification
 import subprocess
 import os
 import re
+import threading
+import winsound
+import keyboard
+from plyer import notification
 from PIL import Image
 from google import genai
 from dotenv import load_dotenv
@@ -14,9 +17,21 @@ from dotenv import load_dotenv
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+def notify_user(title, message): 
+    """Windows par native popup notification bhejta hai"""
+    notification.notify(
+        title=title,
+        message=message,
+        app_name="OmniContext AI",
+        timeout=3 # 3 second baad notification gayab ho jayega
+    )
+
 if not GEMINI_API_KEY:
     print("❌ Error: API Key nahi mili! Kya tumne .env file banayi hai?")
+    notify_user("❌ Error: ", " API Key nahi mili! Kya tumne .env file banayi hai?")
     exit()
+
+
 
 def execute_ai_action(action_command):
     """Yeh function AI ki di hui command ko PC par execute karta hai."""
@@ -25,9 +40,11 @@ def execute_ai_action(action_command):
 
     try:
         subprocess.Popen(app_name)
+        notify_user("Action Taken! ✅", f"Maine tumhare liye {app_name} open kar diya hai.")
         print("✅ Action successful!")
     except Exception as e:
         print(f"❌ Action fail ho gaya: {e}")
+        notify_user("Action Failed ❌", str(e))
 
 def capture_and_analyze():
     # File paths
@@ -39,6 +56,7 @@ def capture_and_analyze():
     # 2. C++ "Muscle" ko trigger karna
     # ==========================================
     print("📸 1. C++ tool se screenshot le raha hoon...")
+    notify_user("OmniContext Active 🚀", "Screenshot liya ja raha hai...")
     try:
         subprocess.run([exe_path], check=True, capture_output=True)
     except Exception as e:
@@ -63,6 +81,7 @@ def capture_and_analyze():
     # 4. Gemini API "Brain" ko prompt bhejna
     # ==========================================
     print("🧠 3. Screen ko analyse karne ke liye Gemini ke paas bhej raha hoon...")
+    notify_user("AI is Thinking 🤔", "Gemini screen ko samajh raha hai...")
 
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
@@ -94,28 +113,37 @@ def capture_and_analyze():
 
         if match:
             action_command = match.group(1)
-            toast = Notification(
-                app_id="OmniContext AI", 
-                title="⚡ Action Executing", 
-                msg=f"Command: {action_command}", 
-                duration="short"
-            )
-            toast.show()
+            execute_ai_action(action_command)
             execute_ai_action(action_command)
         else:
             print("🛑 AI ne is baar koi PC action lene ki zarurat nahi samjhi.")
-            display_text = ai_response_text[:250] + "..." if len(ai_response_text) > 250 else ai_response_text 
-    
-            toast = Notification(
-                app_id="OmniContext AI", 
-                title="🧠 AI Response", 
-                msg=display_text, 
-                duration="long"
-            )
-            toast.show()
+            notify_user("Analysis Done ✅", "Screen par abhi koi action lene ki zaroorat nahi hai.")
+            winsound.Beep(1000, 200)
 
     except Exception as e:
         print(f"❌ API Error: {e}")
+        notify_user("API Error ❌", "AI se connect nahi ho paya.")
+
+# ==========================================
+# 6. HOTKEY LISTENER (Background Controller)
+# ==========================================
+def on_hotkey_pressed():
+    # Button dabte hi instant feedback sound
+    winsound.Beep(800, 150) 
+    # Threading isliye taaki script hang na ho jaye jab tak AI soch raha hai
+    agent_thread = threading.Thread(target=capture_and_analyze)
+    agent_thread.start()
 
 if __name__ == "__main__":
-    capture_and_analyze()
+    print("==================================================")
+    print("🤖 OmniContext Agent is RUNNING in background!")
+    print("👉 Press 'Ctrl + Alt + G' to trigger the AI.")
+    print("👉 Press 'Esc' to exit the program.")
+    print("==================================================")
+    
+    # Shortcut register karna
+    keyboard.add_hotkey('ctrl+alt+g', on_hotkey_pressed)
+    
+    # Script ko background mein zinda rakhne ke liye (Esc dabane par band hoga)
+    keyboard.wait('ctrl+alt+q') 
+    print("Agent stopped. Bye!")

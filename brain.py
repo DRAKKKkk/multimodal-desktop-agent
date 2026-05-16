@@ -6,8 +6,9 @@ from tkinter import simpledialog, scrolledtext, messagebox
 from PIL import ImageGrab, Image
 import pyautogui
 import subprocess
+import speech_recognition as sr
+import winsound
 from google import genai
-from google.genai import types # NAYA: Tools configure karne ke liye
 from dotenv import load_dotenv
 
 # API Setup
@@ -18,25 +19,22 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # 1. THE MCP SERVER (AGENTIC TOOLS)
 # ==========================================
 def open_windows_app(app_name: str) -> str:
-    """Opens a Windows application like 'calc', 'notepad', 'cmd', or 'explorer'."""
+    """Opens a Windows application like 'calc', 'notepad', 'cmd', 'code' or 'cpeditor'."""
     try:
-        subprocess.Popen(app_name)
+        # shell=True se Win+R wale saare commands (jaise 'code') chalenge
+        subprocess.Popen(app_name, shell=True)
         return f"System Action Complete: Successfully opened {app_name}"
     except Exception as e:
         return f"System Error: Failed to open {app_name}. Error: {str(e)}"
 
 def save_text_to_desktop(filename: str, content: str) -> str:
-    """Saves code, notes, or any text to a new file directly on the user's Desktop."""
+    """Saves code or text to a new file directly on the Desktop (handles OneDrive too)."""
     try:
-        user_profile = os.environ['USERPROFILE']
-        # Pehle OneDrive wala path check karega
+        user_profile = os.environ.get('USERPROFILE', '')
         onedrive_desktop = os.path.join(user_profile, 'OneDrive', 'Desktop')
         default_desktop = os.path.join(user_profile, 'Desktop')
         
-        if os.path.exists(onedrive_desktop):
-            desktop_path = onedrive_desktop
-        else:
-            desktop_path = default_desktop
+        desktop_path = onedrive_desktop if os.path.exists(onedrive_desktop) else default_desktop
             
         filepath = os.path.join(desktop_path, filename)
         with open(filepath, 'w', encoding='utf-8') as f:
@@ -46,8 +44,90 @@ def save_text_to_desktop(filename: str, content: str) -> str:
         return f"System Error: Failed to save file. Error: {str(e)}"
 
 # ==========================================
-# 2. THE UI & SCREENSHOT ENGINE
+# 2. VOICE & SCREENSHOT ENGINE
 # ==========================================
+def get_voice_input():
+    """Voice Assistant style floating widget for real-time feedback"""
+    # 1. Floating Widget Setup (Borderless UI)
+    overlay = tk.Tk()
+    overlay.title("Voice Assistant")
+    overlay.overrideredirect(True) # Window ke borders/buttons hata dega (Clean Linux Widget look)
+    overlay.configure(bg="#202124") # Dark Material Theme
+    overlay.attributes('-topmost', True) # Hamesha screen ke upar rahega
+    
+    # Widget ko screen ke bottom-center mein set karna
+    window_width = 500
+    window_height = 100
+    screen_width = overlay.winfo_screenwidth()
+    screen_height = overlay.winfo_screenheight()
+    x_cordinate = int((screen_width/2) - (window_width/2))
+    y_cordinate = int(screen_height - 150) # Thoda neeche
+    overlay.geometry(f"{window_width}x{window_height}+{x_cordinate}+{y_cordinate}")
+    
+    # 2. UI Elements
+    lbl_status = tk.Label(overlay, text="Listening... 🎙️", font=("Segoe UI", 14, "bold"), fg="#8ab4f8", bg="#202124")
+    lbl_status.pack(pady=(15, 5))
+    
+    lbl_text = tk.Label(overlay, text="Boliye, main sun raha hoon...", font=("Segoe UI", 11), fg="white", bg="#202124", wraplength=480)
+    lbl_text.pack()
+    
+    # UI ko screen par render karna
+    overlay.update() 
+    
+    recognized_text = None
+    r = sr.Recognizer()
+    
+    with sr.Microphone() as source:
+        winsound.Beep(1000, 200) # Start Beep
+        try:
+            # Aawaz record karna
+            audio = r.listen(source, timeout=5, phrase_time_limit=15)
+            
+            # Sunne ke baad UI update karna
+            lbl_status.config(text="Processing... ⏳", fg="#fbbc04")
+            lbl_text.config(text="Aawaz ko text mein convert kar raha hoon...")
+            overlay.update()
+            winsound.Beep(1500, 200) # End Beep
+            
+            # API se text nikalna
+            text = r.recognize_google(audio, language="en-IN") 
+            
+            # Final Result UI par dikhana
+            lbl_status.config(text="Recognized ✅", fg="#34a853")
+            lbl_text.config(text=f'"{text}"')
+            overlay.update()
+            time.sleep(4) # User ko padhne ke liye 1.5 sec ka time dena
+            recognized_text = text
+            
+        except sr.WaitTimeoutError:
+            lbl_status.config(text="Timeout ❌", fg="#ea4335")
+            lbl_text.config(text="Aapne kuch nahi bola.")
+            overlay.update()
+            time.sleep(1.5)
+        except Exception as e:
+            lbl_status.config(text="Error ❌", fg="#ea4335")
+            lbl_text.config(text="Aawaz theek se samajh nahi aayi.")
+            overlay.update()
+            time.sleep(1.5)
+            
+    overlay.destroy() # Widget ko clean tareeqe se band karna
+    return recognized_text
+    """Microphone se aawaz sun kar text mein convert karta hai"""
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        winsound.Beep(1000, 200) # Start Beep (Bolo!)
+        try:
+            # 5 sec silence wait karega, max 15 sec tak sunega
+            audio = r.listen(source, timeout=5, phrase_time_limit=15)
+            winsound.Beep(1500, 200) # End Beep (Sun liya!)
+            
+            # Google Free API se convert
+            text = r.recognize_google(audio, language="en-IN")
+            return text
+        except:
+            # Agar aawaz nahi aayi ya samajh nahi aayi
+            return None
+
 def show_result_ui(result_text):
     root = tk.Tk()
     root.title("🤖 OmniContext Agent")
@@ -75,8 +155,7 @@ def get_custom_screenshot():
     img = None
     for _ in range(60): 
         img = ImageGrab.grabclipboard()
-        if isinstance(img, Image.Image): 
-            break
+        if isinstance(img, Image.Image): break
         time.sleep(0.5)
     if isinstance(img, Image.Image):
         img_path = "custom_snip.png"
@@ -90,44 +169,46 @@ def get_custom_screenshot():
 # ==========================================
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "full"
-    root = tk.Tk()
-    root.withdraw() 
-    user_prompt = simpledialog.askstring("OmniContext AI", "Sawal pucho ya koi task do:", parent=root)
     
+    # ==== JARVIS MODE: Voice Input ====
+    user_prompt = get_voice_input()
+    
+    # Agar voice fail ho jaye, toh purana Text Box aa jayega (Fallback)
     if not user_prompt:
-        return 
-        
+        root = tk.Tk()
+        root.withdraw() 
+        user_prompt = simpledialog.askstring("Fallback Mode", "Voice samajh nahi aayi. Type kijiye:", parent=root)
+        if not user_prompt: return
+
+    # ==== Vision Mode ====
     if mode == "crop":
-        messagebox.showinfo("Action", "OK dabane ke baad screen ka hissa crop karein.")
         img_path = get_custom_screenshot()
     else:
         img_path = get_full_screenshot()
     
-    if not img_path:
-        return
+    if not img_path: return
     
+    # ==== AI Processing ====
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
         vision_image = Image.open(img_path)
         
-        # System ko saaf instruction diya hai ki tools use karne hain
-        system_instruction = "You are a smart AI assistant with access to system tools. Look at the attached image context. If the user asks to open an app or save code/notes, DO NOT just write the code, USE YOUR TOOLS to perform the action automatically. Then summarize what you did in Hinglish."
+        system_instruction = "You are a smart AI assistant with system tools. Look at the image. If the user asks to open an app (like 'code', 'cpeditor', etc) or save code/notes, USE YOUR TOOLS to perform the action automatically. Respond in Hinglish."
         
-        # 'chats' mode automatically hamare python tools ko call kar leta hai!
         chat = client.chats.create(
             model='gemini-2.5-flash',
-            config=types.GenerateContentConfig(
-                temperature=0.2,
-                tools=[open_windows_app, save_text_to_desktop], # AI KO HAATH DE DIYE
-            )
+            config={
+                "temperature": 0.2,
+                "tools": [open_windows_app, save_text_to_desktop]
+            }
         )
         
-        # Prompt aur Image dono bhej diye
-        response = chat.send_message([system_instruction, "\n\nUser: " + user_prompt, vision_image])
-        
+        response = chat.send_message([system_instruction, "\n\nUser Voice Command: " + user_prompt, vision_image])
         show_result_ui(str(response.text))
         
     except Exception as e:
+        root = tk.Tk()
+        root.withdraw()
         messagebox.showerror("Error ❌", f"Agent Failed:\n{str(e)}")
 
 if __name__ == "__main__":

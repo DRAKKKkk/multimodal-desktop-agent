@@ -1,6 +1,6 @@
 from google import genai
 
-GEMINI_API_KEY = "AIzaSyDhad0s8N89zNny1jL7keaz17Y5Zc7bxFQ"
+GEMINI_API_KEY = "AIzaSyBXxd98NlELKmPkE4swJIq62jJqeGSD74c"
 
 try:
     client = genai.Client(api_key=GEMINI_API_KEY)

@@ -1,8 +1,11 @@
+from winotify import Notification
 import subprocess
-import os 
+import os
+import re
 from PIL import Image
 from google import genai
 from dotenv import load_dotenv
+
 
 # ==========================================
 # 1. API Setup (Apna API Key yahan dalein)
@@ -11,6 +14,20 @@ from dotenv import load_dotenv
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+if not GEMINI_API_KEY:
+    print("❌ Error: API Key nahi mili! Kya tumne .env file banayi hai?")
+    exit()
+
+def execute_ai_action(action_command):
+    """Yeh function AI ki di hui command ko PC par execute karta hai."""
+    app_name = action_command.strip().lower()
+    print(f"\n⚙️ [SYSTEM ACTION] AI ne action trigger kiya: '{app_name}' open kar raha hoon...")
+
+    try:
+        subprocess.Popen(app_name)
+        print("✅ Action successful!")
+    except Exception as e:
+        print(f"❌ Action fail ho gaya: {e}")
 
 def capture_and_analyze():
     # File paths
@@ -60,11 +77,43 @@ def capture_and_analyze():
             model='gemini-2.5-flash',
             contents=[prompt, vision_image]
         )
+
+        ai_response_text = str(response.text)
+
         print("\n==================================================")
         print("🤖 GEMINI KA JAWAB:")
         print("==================================================")
         print(response.text)
         print("==================================================\n")
+
+        # ==========================================
+        # 5. ACTION EXTRACTOR (Dimaag se Haath tak ka connection)
+        # ==========================================
+        # RegEx ka use karke hum AI ke jawab mein se <ACTION> wale tag ko dhoondhte hain
+        match = re.search(r"<ACTION>(.*?)</ACTION>", ai_response_text)
+
+        if match:
+            action_command = match.group(1)
+            toast = Notification(
+                app_id="OmniContext AI", 
+                title="⚡ Action Executing", 
+                msg=f"Command: {action_command}", 
+                duration="short"
+            )
+            toast.show()
+            execute_ai_action(action_command)
+        else:
+            print("🛑 AI ne is baar koi PC action lene ki zarurat nahi samjhi.")
+            display_text = ai_response_text[:250] + "..." if len(ai_response_text) > 250 else ai_response_text 
+    
+            toast = Notification(
+                app_id="OmniContext AI", 
+                title="🧠 AI Response", 
+                msg=display_text, 
+                duration="long"
+            )
+            toast.show()
+
     except Exception as e:
         print(f"❌ API Error: {e}")
 

@@ -1,5 +1,51 @@
+# =========================================
+# 1. Secrets & API Keys (SABSE IMPORTANT)
+# =========================================
 .env
+
+# =========================================
+# 2. Python Virtual Environment
+# =========================================
 .venv/
-__pycache__/
-*.bmp
+venv/
+env/
+
+# =========================================
+# 3. Dynamic Files & Screenshots
+# (Taaki tumhari personal screen GitHub pe na jaye)
+# =========================================
 *.png
+*.jpg
+*.jpeg
+screenshot.png
+
+# =========================================
+# 4. Python Cache Files (Junk files)
+# =========================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# =========================================
+# 5. C++ Compiled Binaries (Windows)
+# (Kyunki code upload karna hota hai, .exe nahi)
+# =========================================
+*.exe
+*.obj
+*.pdb
+*.ilk
+
+# =========================================
+# 6. IDE / Editor Folders
+# =========================================
+.vscode/
+*.swp
+
+# Local shortcut scripts
+*.bat
+.bat
+
+run_omni.bat - Shortcut.lnk
+
+*.bmp

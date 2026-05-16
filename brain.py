@@ -1,149 +1,99 @@
-import subprocess
 import os
-import re
-import threading
-import winsound
-import keyboard
-from plyer import notification
-from PIL import Image
+import time
+import tkinter as tk
+from tkinter import simpledialog, scrolledtext, messagebox
+from PIL import ImageGrab, Image
+import pyautogui
+import subprocess
 from google import genai
 from dotenv import load_dotenv
 
-
-# ==========================================
-# 1. API Setup (Apna API Key yahan dalein)
-# ==========================================
-# DHYAN DEIN: Apni asli Gemini API key yahan string mein dalein
+# API Setup
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-def notify_user(title, message): 
-    """Windows par native popup notification bhejta hai"""
-    notification.notify(
-        title=title,
-        message=message,
-        app_name="OmniContext AI",
-        timeout=3 # 3 second baad notification gayab ho jayega
-    )
+def show_result_ui(result_text):
+    """Modern Dark Theme UI for AI Responses"""
+    root = tk.Tk()
+    root.title("🤖 OmniContext AI - Response")
+    root.geometry("600x450")
+    root.attributes('-topmost', True)
+    root.configure(bg="#121212")
+    
+    text_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, font=("Consolas", 11), bg="#1e1e1e", fg="#00ff00", padx=15, pady=15)
+    text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+    text_area.insert(tk.INSERT, result_text)
+    text_area.configure(state='disabled')
+    
+    root.bind('<Escape>', lambda e: root.destroy())
+    root.mainloop()
 
-if not GEMINI_API_KEY:
-    print("❌ Error: API Key nahi mili! Kya tumne .env file banayi hai?")
-    notify_user("❌ Error: ", " API Key nahi mili! Kya tumne .env file banayi hai?")
-    exit()
+def get_custom_screenshot():
+    """Windows native snipping tool ko trigger karta hai aur clipboard se image uthata hai"""
+    # 1. Purana clipboard clear karna (Windows native command)
+    subprocess.run(['clip'], input='', text=True)
+    
+    # 2. Snipping tool open karna (Win + Shift + S)
+    time.sleep(0.5) # UI ko thoda saanz lene ka time
+    pyautogui.hotkey('win', 'shift', 's')
+    
+    # 3. User ka wait karna (max 30 seconds) jab tak wo crop na kar le
+    img = None
+    for _ in range(60): # 0.5 sec * 60 = 30 seconds
+        img = ImageGrab.grabclipboard()
+        # Agar clipboard mein image aayi hai, toh loop tod do
+        if isinstance(img, Image.Image): 
+            break
+        time.sleep(0.5)
+        
+    # NAYA: Pylance ko guarantee dena ki yeh exactly ek Image hi hai
+    if isinstance(img, Image.Image):
+        img_path = "custom_snip.png"
+        img = img.convert("RGB") 
+        img.save(img_path, "PNG")
+        return img_path
+        
+    return None
 
+def main():
+    # 1. THE CONTEXT ENGINE: Custom Prompt UI
+    root = tk.Tk()
+    root.withdraw() 
+    user_prompt = simpledialog.askstring("OmniContext AI", "Aapka Context/Sawal kya hai? (Voice coming soon...)", parent=root)
+    
+    if user_prompt is None:
+        return 
+    if user_prompt.strip() == "":
+        user_prompt = "Main abhi kya kar raha hoon? Detail mein batao."
 
-
-def execute_ai_action(action_command):
-    """Yeh function AI ki di hui command ko PC par execute karta hai."""
-    app_name = action_command.strip().lower()
-    print(f"\n⚙️ [SYSTEM ACTION] AI ne action trigger kiya: '{app_name}' open kar raha hoon...")
-
-    try:
-        subprocess.Popen(app_name)
-        notify_user("Action Taken! ✅", f"Maine tumhare liye {app_name} open kar diya hai.")
-        print("✅ Action successful!")
-    except Exception as e:
-        print(f"❌ Action fail ho gaya: {e}")
-        notify_user("Action Failed ❌", str(e))
-
-def capture_and_analyze():
-    # File paths
-    exe_path = r"screenshot.exe"
-    bmp_path = "mine_screenshot.bmp"
-    png_path = "current_screen.png"
-
-    # ==========================================
-    # 2. C++ "Muscle" ko trigger karna
-    # ==========================================
-    print("📸 1. C++ tool se screenshot le raha hoon...")
-    notify_user("OmniContext Active 🚀", "Screenshot liya ja raha hai...")
-    try:
-        subprocess.run([exe_path], check=True, capture_output=True)
-    except Exception as e:
-        print(f"❌ Error: C++ program fail ho gaya.\n{e}")
+    # 2. CUSTOM SNIPPING TOOL INTEGRATION
+    # User ko ek alert dete hain taaki wo taiyaar rahe
+    messagebox.showinfo("Action Required", "OK dabane ke baad apni screen ka hissa crop karein.")
+    
+    img_path = get_custom_screenshot()
+    
+    if not img_path:
+        messagebox.showwarning("Timeout", "Aapne koi screenshot nahi liya. AI process cancel ho gaya.")
         return
     
-    # ==========================================
-    # 3. Image Conversion (.bmp -> .png)
-    # ==========================================
-    print("🔄 2. Image ko Gemini ke liye .png mein convert kar raha hoon...")
-    if not os.path.exists(bmp_path):
-        print(f"❌ Error: {bmp_path} nahi mili!")
-        return
-    
-    img = Image.open(bmp_path)
-    img.save(png_path, "PNG")
-
-    # Optional: Original .bmp file ko delete kar sakte hain space bachane ke liye
-    # os.remove(bmp_path)
-
-    # ==========================================
-    # 4. Gemini API "Brain" ko prompt bhejna
-    # ==========================================
-    print("🧠 3. Screen ko analyse karne ke liye Gemini ke paas bhej raha hoon...")
-    notify_user("AI is Thinking 🤔", "Gemini screen ko samajh raha hai...")
-
     try:
+        # 3. THE AI ORCHESTRATOR
         client = genai.Client(api_key=GEMINI_API_KEY)
+        vision_image = Image.open(img_path)
         
-        vision_image = Image.open(png_path)
-        prompt = """Main apne laptop par abhi kya kar raha hoon? Is screen ko dekh kar detail mein samjhao ki screen par kaunse apps khule hain aur kya kaam chal raha hai. 
+        # AI ko clearly command dena ki image padhni hai
+        strict_prompt = f"[SYSTEM: Look at the attached image carefully and answer the user's request based on the image content.]\n\nUser Request: {user_prompt}"
         
-        IMPORTANT INSTRUCTION: Tumhara poora jawab sirf aur sirf 'Hinglish' (Hindi spoken language written in English alphabets) mein hona chahiye. Pure Hindi (Devanagari script) ya pure English ka bilkul use mat karna. Jawab natural aur conversational hona chahiye."""
-
-        # Latest Gemini 2.0 Flash model use kar rahe hain
         response = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=[prompt, vision_image]
+            contents=[strict_prompt, vision_image]
         )
-
-        ai_response_text = str(response.text)
-
-        print("\n==================================================")
-        print("🤖 GEMINI KA JAWAB:")
-        print("==================================================")
-        print(response.text)
-        print("==================================================\n")
-
-        # ==========================================
-        # 5. ACTION EXTRACTOR (Dimaag se Haath tak ka connection)
-        # ==========================================
-        # RegEx ka use karke hum AI ke jawab mein se <ACTION> wale tag ko dhoondhte hain
-        match = re.search(r"<ACTION>(.*?)</ACTION>", ai_response_text)
-
-        if match:
-            action_command = match.group(1)
-            execute_ai_action(action_command)
-            execute_ai_action(action_command)
-        else:
-            print("🛑 AI ne is baar koi PC action lene ki zarurat nahi samjhi.")
-            notify_user("Analysis Done ✅", "Screen par abhi koi action lene ki zaroorat nahi hai.")
-            winsound.Beep(1000, 200)
-
+        
+        # 4. UI RENDER
+        show_result_ui(str(response.text))
+        
     except Exception as e:
-        print(f"❌ API Error: {e}")
-        notify_user("API Error ❌", "AI se connect nahi ho paya.")
-
-# ==========================================
-# 6. HOTKEY LISTENER (Background Controller)
-# ==========================================
-def on_hotkey_pressed():
-    # Button dabte hi instant feedback sound
-    winsound.Beep(800, 150) 
-    # Threading isliye taaki script hang na ho jaye jab tak AI soch raha hai
-    agent_thread = threading.Thread(target=capture_and_analyze)
-    agent_thread.start()
+        messagebox.showerror("System Error ❌", f"AI se connect nahi ho paya:\n{str(e)[:150]}")
 
 if __name__ == "__main__":
-    print("==================================================")
-    print("🤖 OmniContext Agent is RUNNING in background!")
-    print("👉 Press 'Ctrl + Alt + G' to trigger the AI.")
-    print("👉 Press 'Esc' to exit the program.")
-    print("==================================================")
-    
-    # Shortcut register karna
-    keyboard.add_hotkey('ctrl+alt+g', on_hotkey_pressed)
-    
-    # Script ko background mein zinda rakhne ke liye (Esc dabane par band hoga)
-    keyboard.wait('ctrl+alt+q') 
-    print("Agent stopped. Bye!")
+    main()

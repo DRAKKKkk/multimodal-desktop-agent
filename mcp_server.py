@@ -2,7 +2,8 @@ from mcp.server.fastmcp import FastMCP
 import subprocess
 import os
 
-mcp = FastMCP("OmniContext-Hands")
+# Server ka naam jo AI ko dikhega
+mcp = FastMCP("OmniContext-Tools")
 
 @mcp.tool()
 def open_windows_app(app_name: str) -> str:
@@ -19,16 +20,15 @@ def open_windows_app(app_name: str) -> str:
 @mcp.tool()
 def create_text_file(filename: str, content: str) -> str:
     """
-    Ek tool jo tumhare PC par nayi text file banata hai.
+    Ek tool jo tumhare PC par nayi text file banata hai aur usme content save karta hai.
     """
     try:
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(content)
         return f"Success: {filename} file ban gayi aur usme text save ho gaya."
     except Exception as e:
         return f"Error: File save karne mein dikkat aayi - {e}"
-    
+
 if __name__ == "__main__":
-    # Server ko stdio mode mein run karna (MCP ka standard communication tarika)
-    print("🤖 OmniContext MCP Server start ho raha hai...")
+    print("🤖 OmniContext MCP Server is ready...")
     mcp.run()

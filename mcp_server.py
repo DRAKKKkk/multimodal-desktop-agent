@@ -17,7 +17,7 @@ def open_windows_app(app_name: str) -> str:
         return f"Error: {app_name} open nahi ho paya. Details: {e}"
 
 @mcp.tool()
-def create_text_file(filename: str, context: str) -> str:
+def create_text_file(filename: str, content: str) -> str:
     """
     Ek tool jo tumhare PC par nayi text file banata hai.
     """

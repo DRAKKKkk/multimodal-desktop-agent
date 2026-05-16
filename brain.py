@@ -2,13 +2,15 @@ import subprocess
 import os 
 from PIL import Image
 from google import genai
+from dotenv import load_dotenv
 
 # ==========================================
 # 1. API Setup (Apna API Key yahan dalein)
 # ==========================================
 # DHYAN DEIN: Apni asli Gemini API key yahan string mein dalein
-GEMINI_API_KEY = "AIzaSyDhad0s8N89zNny1jL7keaz17Y5Zc7bxFQ"
-# genai.configure(api_key=GEMINI_API_KEY)
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 
 def capture_and_analyze():
     # File paths

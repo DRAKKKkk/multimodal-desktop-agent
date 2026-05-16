@@ -28,9 +28,17 @@ def open_windows_app(app_name: str) -> str:
 def save_text_to_desktop(filename: str, content: str) -> str:
     """Saves code, notes, or any text to a new file directly on the user's Desktop."""
     try:
-        # Windows Desktop ka path automatically dhundhna
-        desktop = os.path.join(os.environ['USERPROFILE'], 'Desktop')
-        filepath = os.path.join(desktop, filename)
+        user_profile = os.environ['USERPROFILE']
+        # Pehle OneDrive wala path check karega
+        onedrive_desktop = os.path.join(user_profile, 'OneDrive', 'Desktop')
+        default_desktop = os.path.join(user_profile, 'Desktop')
+        
+        if os.path.exists(onedrive_desktop):
+            desktop_path = onedrive_desktop
+        else:
+            desktop_path = default_desktop
+            
+        filepath = os.path.join(desktop_path, filename)
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content)
         return f"System Action Complete: File saved successfully at {filepath}"
